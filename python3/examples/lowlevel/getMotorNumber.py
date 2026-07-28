@@ -1,4 +1,22 @@
-﻿import sys
+﻿"""
+getMotorNumber 接口示例。
+
+函数原型：
+    getMotorNumber() -> uint32_t
+
+功能：
+    获取机器人的电机数量。
+
+参数：
+    无
+
+返回值：
+    返回一个无符号整数，表示机器人中的总电机数量。
+备注：
+    例如，双轮足形态下的电机数量为 10 个。
+"""
+
+import sys
 import limxsdk.robot.Robot as Robot
 import limxsdk.robot.RobotType as RobotType
 
