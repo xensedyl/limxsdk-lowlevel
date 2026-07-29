@@ -319,6 +319,7 @@ class Tron2:
         # 线程安全的队列和状态锁
         self.joint_state_queue = deque(maxlen=self.config.state_queue_maxlen)
         self.ee_pose_queue = deque(maxlen=self.config.state_queue_maxlen)
+        self.gripper_state_queue = deque(maxlen=self.config.state_queue_maxlen)
         self._queue_lock = threading.Lock()
         self._state_lock = threading.Lock()  # 保护joint_states的原子性
     
@@ -425,6 +426,19 @@ class Tron2:
         """处理夹爪状态消息（原子更新）"""
         self.states_mode = 'gripper'
         claw_data = root.get("data", {})
+
+        gripper_state = {
+            "timestamp": claw_data.get("timestamp", root.get("timestamp", -1)),
+            "left_opening": claw_data.get("left_opening", -1),
+            "left_speed": claw_data.get("left_speed", -1),
+            "left_force": claw_data.get("left_force", -1),
+            "right_opening": claw_data.get("right_opening", -1),
+            "right_speed": claw_data.get("right_speed", -1),
+            "right_force": claw_data.get("right_force", -1),
+            "result": claw_data.get("result", ""),
+        }
+        with self._queue_lock:
+            self.gripper_state_queue.append(gripper_state)
         
         with self._state_lock:
             # 夹爪开口度归一化到 0-1
@@ -566,6 +580,24 @@ class Tron2:
             time.sleep(0.001)
         
         raise StateError(f"获取关节状态超时 ({timeout}s)")
+
+    def get_gripper_state(self, timeout: float = 1.0) -> Dict:
+        """获取逐际二指夹爪的完整状态。
+
+        Returns:
+            包含左右夹爪开口度、速度、夹持力和执行结果的字典。
+
+        Raises:
+            StateError: 超时未获取到状态。
+        """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            with self._queue_lock:
+                if self.gripper_state_queue:
+                    return self.gripper_state_queue.pop()
+            time.sleep(0.001)
+
+        raise StateError(f"获取夹爪状态超时 ({timeout}s)")
     
     def get_ee_poses(self, timeout: float = 1.0) -> Dict:
         """获取当前末端位姿
@@ -759,7 +791,8 @@ class Tron2:
             "right_force": int(np.clip(right_force, 0, 100))
         }
         
-        self._send_request("request_set_limx_2fclaw_cmd", data)
+        if not self._send_request("request_set_limx_2fclaw_cmd", data):
+            raise CommandError("夹爪控制命令发送失败")
     
     def move_head(self, head_joint: Union[List[float], np.ndarray], move_time: float = 5.0):
         """移动头部到指定位置
