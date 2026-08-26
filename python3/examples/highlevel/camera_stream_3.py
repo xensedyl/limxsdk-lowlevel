@@ -26,7 +26,7 @@ CAMERA_TOPICS = {
 def parse_args():
     parser = argparse.ArgumentParser(description="同时显示三个机器人相机视频流")
     parser.add_argument("--host", default=DEFAULT_HOST, help="Bridge 服务 IP")
-    parser.add_argument("--fps", type=int, default=31, help="服务端最大放行帧率")
+    parser.add_argument("--fps", type=int, default=60, help="服务端最大放行帧率")
     return parser.parse_args()
 
 

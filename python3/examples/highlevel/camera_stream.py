@@ -30,7 +30,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="显示机器人相机视频流")
     parser.add_argument("--host", default=DEFAULT_HOST, help="Bridge 服务 IP")
     parser.add_argument("--topic", default=DEFAULT_TOPIC, help="相机压缩图像话题")
-    parser.add_argument("--fps", type=int, default=30, help="最大接收帧率")
+    parser.add_argument("--fps", type=int, default=60, help="最大接收帧率")
     return parser.parse_args()
 
 
