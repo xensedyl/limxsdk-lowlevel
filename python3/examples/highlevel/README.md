@@ -197,7 +197,9 @@ python3 python3/examples/highlevel/move_joint.py
 - `move_joint.py` 的目标顺序是左臂 7 个关节，然后是右臂 7 个关节，单位为 rad。
 - `move_head.py` 的头部顺序是 `[pitch, yaw]`，单位为 rad。
 - `move_pose.py` 和 `move_servo_pose.py` 使用 `xyz+wxyz` 位姿格式，位置单位为 m。
-- ServoJ 建议在实时系统中以不低于 500 Hz 的频率发送。普通 Python/Linux 环境不能保证硬实时，本示例主要用于接口演示。
+- ServoJ 建议在实时系统中按 300 Hz 的控制频率发送。普通 Python/Linux 环境不能保证硬实时，本示例主要用于接口演示。
+- ServoJ 无插值，抖动通常来自指令本身超出关节能力。下发轨迹的峰值速度 `A*2*pi*f` 与峰值加速度 `A*(2*pi*f)^2` 必须在关节限值内；起停处建议加幅度渐变包络。
+- 若仍有抖动，可调小 `Tron2Config.servoj_filter_ratio`（或 `robot.servoj(q, filter_ratio=...)`）启用机器人侧一阶滤波，`1.0` 表示无滤波，越小越平滑但跟随滞后越大。
 - 按 `Ctrl+C` 可中止示例；中止后仍应确认机器人已经退出运动或伺服状态。
 
 ### 相机视频流

@@ -149,9 +149,14 @@ class Tron2Config:
     polling_rate: float = 200.0
 
     # 伺服控制频率 (Hz)
-    # ServoJ 官方建议在实时系统中以不低于 500 Hz 的频率发送。
-    servoj_rate: float = 500.0
+    # ServoJ 官方建议在实时系统中按 300 Hz 控制频率发送。
+    # 非实时 Python 下 500 Hz(2ms 周期) 的 sleep 唤醒误差占比过大，反而更抖。
+    servoj_rate: float = 300.0
     servop_rate: float = 100.0
+
+    # ServoJ 目标值滤波系数 (0~1)
+    # 1.0 = 完全信任下发目标(无滤波)；越小机器人侧一阶平滑越强，抖动越小但跟随滞后越大。
+    servoj_filter_ratio: float = 1.0
     
     # 连接超时 (秒)
     connection_timeout: float = 5.0
@@ -180,10 +185,12 @@ class Tron2Config:
         if self.init_head is not None and len(self.init_head) != JointIndex.HEAD_DIM:
             raise ValueError(f"init_head should have {JointIndex.HEAD_DIM} elements, got {len(self.init_head)}")
 
-        if self.servoj_rate < 500.0:
-            raise ValueError("servoj_rate must be at least 500 Hz")
+        if self.servoj_rate < 300.0:
+            raise ValueError("servoj_rate must be at least 300 Hz")
         if self.servop_rate <= 0:
             raise ValueError("servop_rate must be greater than 0")
+        if not 0.0 < self.servoj_filter_ratio <= 1.0:
+            raise ValueError("servoj_filter_ratio must be in (0, 1]")
         
 
 
@@ -659,29 +666,35 @@ class Tron2:
         self.logger.debug(f"MoveJ命令已发送: time={move_time}s")
     
     def servoj(
-        self, 
+        self,
         joint_positions: Union[List[float], np.ndarray],
+        filter_ratio: Optional[float] = None,
     ):
         """关节空间伺服控制(无插值，高频)
-        
+
         Args:
             joint_positions: 关节角度 (必须为16维: 14臂关节 + 2头关节)
+            filter_ratio: 目标值滤波系数 (0~1)，1.0 表示无滤波。
+                默认取 config.servoj_filter_ratio。抖动明显时调小。
         Raises:
             CommandError: 参数错误或发送失败
         """
         if isinstance(joint_positions, np.ndarray):
             joint_positions = joint_positions.tolist()
-        
+
         if len(joint_positions) != self.servoj_joint_num:
             raise CommandError(
                 f"关节角度列表长度应为{self.servoj_joint_num}, 实际{len(joint_positions)}"
             )
-        
+
+        if filter_ratio is None:
+            filter_ratio = self.config.servoj_filter_ratio
+
         servo_data = {
-            "q": joint_positions, # todo
-            "filter_ratio": 1.0
+            "q": joint_positions,
+            "filter_ratio": filter_ratio
         }
-        
+
         if not self._send_request("request_servoj", servo_data):
             raise CommandError("ServoJ命令发送失败")
         self.servoj_rate_limiter.sleep()  # 固定频率控制
