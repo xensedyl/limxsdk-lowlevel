@@ -2,6 +2,18 @@
 
 本目录提供基于 WebSocket 的 TRON2 上层控制、状态读取和相机视频流示例。上层控制代码封装在 `robot_utils.py` 中，不依赖 `limxsdk` wheel。
 
+## 命名规则
+
+所有脚本继续平铺在本目录，不增加功能子目录。此次只调整文件名，参数、协议和控制逻辑保持不变；旧文件名不再保留，运行时请使用下方的新名称。
+
+- `move_*.py`：运动控制，包括双臂、头部、夹爪、底盘、升降台。
+- `get_*.py`：状态或位置读取，现有文件名保持不变。
+- `set_mode_*.py`：模式设置，目前为 `set_mode_chassis.py`（底盘运动模式）。
+- `camera_*.py`：相机视频流和接收性能测试，文件名保持不变。
+- `robot_utils.py`、`example_common.py`、`mobile_platform_common.py`：公共模块，文件名保持不变。
+
+双臂接口名称不变：`move_joint.py` 对应 MoveJ，`move_pose.py` 对应 MoveP，`move_head.py` 对应 MoveH，`move_servo_joint.py` 对应 ServoJ，`move_servo_pose.py` 对应 ServoP。两个头部原始 WebSocket 示例分别保留为 `move_head_websocket.py` 和 `move_head_websocket_client.py`，未合并。
+
 ## 使用前准备
 
 - 确保开发机能够访问机器人控制服务 `10.192.1.2:5000`。
@@ -55,12 +67,12 @@ python3 python3/examples/highlevel/get_gripper_state.py
 以下脚本实现[官方 SDK 文档第 3.6.11～3.6.17 节](https://www.limxdynamics.com/zh/documents/847884267345285120#3.6.11-获取升降台状态（仅适用于移动版双臂）)的接口。它们使用 `websocket-client`，不需要 NumPy、OpenCV 或 `limxsdk`：
 
 - `get_lifter_state.py`：获取升降台 `q` 和 `v` 状态。
-- `set_lifter_position.py`：设置升降台绝对位置，单位 mm。
-- `set_lifter_velocity.py`：设置升降台速度，单位 mm/s。
+- `move_lifter_position.py`：设置升降台绝对位置，单位 mm。
+- `move_lifter_velocity.py`：设置升降台速度，单位 mm/s。
 - `get_lifter_position.py`：获取升降台位置、`q`、`q_per_mm` 和数据时间戳。
 - `get_chassis_state.py`：获取底盘线速度、角速度和转向角。
-- `set_chassis_mode.py`：设置 `ackerman`、`parallel`、`park`、`spinning` 或 `emergency_stop` 模式。
-- `chassis_move.py`：键盘按住运动、松开停止，发送 `x`、`y`、`yaw` 底盘运动值。
+- `set_mode_chassis.py`：设置 `ackerman`、`parallel`、`park`、`spinning` 或 `emergency_stop` 模式。
+- `move_chassis.py`：键盘按住运动、松开停止，发送 `x`、`y`、`yaw` 底盘运动值。
 - `mobile_platform_common.py`：上述脚本共用的连接和协议模块，不需要直接运行。
 
 先安装依赖：
@@ -85,10 +97,10 @@ python3 python3/examples/highlevel/get_lifter_position.py --interval 0.5
 
 ```bash
 # 2000 ms 内移动到绝对位置 200.5 mm；duration 可以为 0
-python3 python3/examples/highlevel/set_lifter_position.py 200.5 2000
+python3 python3/examples/highlevel/move_lifter_position.py 200.5 2000
 
 # 以 50 mm/s 运动 2000 ms；速度可正可负，duration 必须大于 0
-python3 python3/examples/highlevel/set_lifter_velocity.py 50 2000
+python3 python3/examples/highlevel/move_lifter_velocity.py 50 2000
 ```
 
 读取底盘状态：
@@ -107,15 +119,15 @@ python3 python3/examples/highlevel/get_chassis_state.py --interval 0.5
 python3 -m pip install pygame
 
 # 启动键盘窗口，保持机器人当前模式，默认速度值 0.5
-python3 python3/examples/highlevel/chassis_move.py
+python3 python3/examples/highlevel/move_chassis.py
 
 # 可显式选择模式、速度和指令刷新频率
-python3 python3/examples/highlevel/chassis_move.py \
+python3 python3/examples/highlevel/move_chassis.py \
     --mode ackerman --speed 0.2 --turn-speed 0.2 --rate 20
 
 # 单独设置底盘模式仍使用原脚本
-python3 python3/examples/highlevel/set_chassis_mode.py parallel
-python3 python3/examples/highlevel/set_chassis_mode.py emergency_stop --yes
+python3 python3/examples/highlevel/set_mode_chassis.py parallel
+python3 python3/examples/highlevel/set_mode_chassis.py emergency_stop --yes
 ```
 
 输入 `yes` 确认后，点击 **TRON2 Keyboard Control** 窗口，使其获得键盘焦点：
@@ -128,7 +140,7 @@ python3 python3/examples/highlevel/set_chassis_mode.py emergency_stop --yes
 - 空格：发送全零指令。窗口失焦或最小化也会发送全零指令。之后须先松开所有方向键，再重新按下才能运动。
 - `Esc`、`Ctrl+C` 或关闭窗口：尝试发送全零指令并退出。
 
-`--speed` 和 `--turn-speed` 均为 `(0, 1]` 范围内的协议值，不代表 m/s 或 rad/s。脚本默认保持当前底盘模式，只有指定 `--mode` 才会更改模式。原来的 `chassis_move.py 0.3 0 0` 单次发送方式已替换为键盘控制。
+`--speed` 和 `--turn-speed` 均为 `(0, 1]` 范围内的协议值，不代表 m/s 或 rad/s。脚本默认保持当前底盘模式，只有指定 `--mode` 才会更改模式。本脚本使用键盘控制，不再支持 `x y yaw` 三个位置参数的单次发送方式。
 
 脚本通过真实的键盘状态检测松键，不依赖终端按键重复，因此需要可交互的桌面窗口；纯 SSH 无桌面会话不能直接使用。后台接收运动响应不会阻塞松键发送停止；默认超过 `--response-timeout 0.5` 秒未收到某条指令响应时，尝试发送全零指令并退出。断网、进程被强制终止或控制器异常时不能保证停止送达，需要机器人侧超时保护和实体急停。成功响应仅代表控制器接受指令，不是实际速度已归零的证明。
 
@@ -137,7 +149,7 @@ python3 python3/examples/highlevel/set_chassis_mode.py emergency_stop --yes
 如果窗口目标速度有变化但底盘不动，先核对运动模式和响应：
 
 ```bash
-python3 python3/examples/highlevel/chassis_move.py \
+python3 python3/examples/highlevel/move_chassis.py \
     --mode ackerman --speed 0.2 --turn-speed 0.2 --debug
 ```
 
@@ -162,26 +174,26 @@ python3 python3/examples/highlevel/chassis_move.py \
 
 | 文件 | 功能 | 主要配置 |
 | --- | --- | --- |
-| `moveh.py` | 头部 pitch、yaw 插值运动 | `TARGET_HEAD`、`MOVE_TIME` |
-| `movej.py` | 双臂 14 维关节空间插值运动 | `TARGET_JOINTS`、`MOVE_TIME` |
-| `movep.py` | 双臂末端笛卡尔空间插值运动 | `LEFT_Z_OFFSET`、`MOVE_TIME` |
-| `servoj.py` | 双臂和头部 16 维高频关节伺服 | `SERVO_RATE`、`RUN_TIME`、`AMPLITUDE` |
-| `servop.py` | 双臂末端连续位姿伺服 | `SERVO_RATE`、`RUN_TIME`、`AMPLITUDE` |
-| `gripper_control.py` | 设置左右夹爪开口度、速度和力 | `LEFT_*`、`RIGHT_*` |
-| `moveHeadWebSocket.py` | 直接演示 MoveH WebSocket 请求 | `ROBOT_IP`、`ROBOT_PORT` |
-| `websocket_client.py` | 与 `moveHeadWebSocket.py` 相同的交互式 MoveH 示例 | `ROBOT_IP`、`ROBOT_PORT` |
+| `move_head.py` | 头部 pitch、yaw 插值运动 | `TARGET_HEAD`、`MOVE_TIME` |
+| `move_joint.py` | 双臂 14 维关节空间插值运动 | `TARGET_JOINTS`、`MOVE_TIME` |
+| `move_pose.py` | 双臂末端笛卡尔空间插值运动 | `LEFT_Z_OFFSET`、`MOVE_TIME` |
+| `move_servo_joint.py` | 双臂和头部 16 维高频关节伺服 | `SERVO_RATE`、`RUN_TIME`、`AMPLITUDE` |
+| `move_servo_pose.py` | 双臂末端连续位姿伺服 | `SERVO_RATE`、`RUN_TIME`、`AMPLITUDE` |
+| `move_gripper.py` | 设置左右夹爪开口度、速度和力 | `LEFT_*`、`RIGHT_*` |
+| `move_head_websocket.py` | 直接演示 MoveH WebSocket 请求 | `ROBOT_IP`、`ROBOT_PORT` |
+| `move_head_websocket_client.py` | 与 `move_head_websocket.py` 相同的交互式 MoveH 示例 | `ROBOT_IP`、`ROBOT_PORT` |
 
 运动示例在发送命令前会等待用户按 Enter 确认。例如：
 
 ```bash
-python3 python3/examples/highlevel/movej.py
+python3 python3/examples/highlevel/move_joint.py
 ```
 
 注意事项：
 
-- `movej.py` 的目标顺序是左臂 7 个关节，然后是右臂 7 个关节，单位为 rad。
-- `moveh.py` 的头部顺序是 `[pitch, yaw]`，单位为 rad。
-- `movep.py` 和 `servop.py` 使用 `xyz+wxyz` 位姿格式，位置单位为 m。
+- `move_joint.py` 的目标顺序是左臂 7 个关节，然后是右臂 7 个关节，单位为 rad。
+- `move_head.py` 的头部顺序是 `[pitch, yaw]`，单位为 rad。
+- `move_pose.py` 和 `move_servo_pose.py` 使用 `xyz+wxyz` 位姿格式，位置单位为 m。
 - ServoJ 建议在实时系统中以不低于 500 Hz 的频率发送。普通 Python/Linux 环境不能保证硬实时，本示例主要用于接口演示。
 - 按 `Ctrl+C` 可中止示例；中止后仍应确认机器人已经退出运动或伺服状态。
 

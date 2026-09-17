@@ -1,6 +1,6 @@
 """键盘按住运动、松开停止（移动版双臂 TRON2，SDK 文档 3.6.17）。
 
-运行：python3 chassis_move.py --speed 0.2 --turn-speed 0.2
+运行：python3 move_chassis.py --speed 0.2 --turn-speed 0.2
 依赖：python3 -m pip install websocket-client pygame
 需要桌面显示环境；点击控制窗口后使用 W/S、A/D、Q/E。
 """

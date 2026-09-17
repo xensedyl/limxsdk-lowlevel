@@ -5,7 +5,7 @@
     pip install websocket-client
 
 运行：
-    python3 moveHeadWebSocket.py
+    python3 move_head_websocket_client.py
 """
 
 import json
