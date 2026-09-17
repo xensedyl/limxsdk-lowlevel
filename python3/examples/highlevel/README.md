@@ -70,7 +70,7 @@ python3 python3/examples/highlevel/get_gripper_state.py
 - `move_lifter_position.py`：设置升降台绝对位置，单位 mm。
 - `move_lifter_velocity.py`：设置升降台速度，单位 mm/s。
 - `get_lifter_position.py`：获取升降台位置、`q`、`q_per_mm` 和数据时间戳。
-- `get_chassis_state.py`：获取底盘线速度、角速度和转向角。
+- `get_chassis_state.py`：默认持续打印底盘线速度、角速度和转向角，按 Ctrl+C 退出。
 - `set_mode_chassis.py`：设置 `ackerman`、`parallel`、`park`、`spinning` 或 `emergency_stop` 模式。
 - `move_chassis.py`：键盘按住运动、松开停止，发送 `x`、`y`、`yaw` 底盘运动值。
 - `mobile_platform_common.py`：上述脚本共用的连接和协议模块，不需要直接运行。
@@ -106,11 +106,14 @@ python3 python3/examples/highlevel/move_lifter_velocity.py 50 2000
 读取底盘状态：
 
 ```bash
-# 查询一次
+# 默认持续打印，每次收到响应后等待 0.5 秒，按 Ctrl+C 退出
 python3 python3/examples/highlevel/get_chassis_state.py
 
-# 每次收到响应后等待 0.5 秒，按 Ctrl+C 退出
-python3 python3/examples/highlevel/get_chassis_state.py --interval 0.5
+# 自定义查询间隔：每次收到响应后等待 0.2 秒
+python3 python3/examples/highlevel/get_chassis_state.py --interval 0.2
+
+# 仅查询一次
+python3 python3/examples/highlevel/get_chassis_state.py --interval 0
 ```
 
 键盘控制底盘（需要桌面显示环境）：

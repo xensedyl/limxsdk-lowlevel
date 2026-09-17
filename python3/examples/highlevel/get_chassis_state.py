@@ -1,8 +1,8 @@
 """获取移动版双臂 TRON2 的底盘状态（只读）。
 
 依赖：python3 -m pip install websocket-client
-单次：python3 get_chassis_state.py
-连续：python3 get_chassis_state.py --interval 0.5
+连续：python3 get_chassis_state.py（默认每次收到响应后等待 0.5 秒）
+单次：python3 get_chassis_state.py --interval 0
 
 协议：SDK 开发指南 3.6.15，request_chassis_state / response_chassis_state。
 返回顺序：linear_velocity、angular_velocity、steering_angle。
@@ -28,11 +28,11 @@ from mobile_platform_common import (
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="读取移动版双臂 TRON2 的底盘状态")
+    parser = argparse.ArgumentParser(description="持续打印移动版双臂 TRON2 的底盘状态，按 Ctrl+C 退出")
     add_connection_arguments(parser)
     parser.add_argument(
-        "--interval", type=float, default=0.0,
-        help="每次读取后等待的秒数；默认 0 表示只读取一次",
+        "--interval", type=float, default=0.1,
+        help="每次读取后等待的秒数，默认 0.5；设为 0 时只读取一次",
     )
     args = parser.parse_args()
     validate_connection_arguments(parser, args)
@@ -69,7 +69,7 @@ def main():
             print_connected(client)
             print("底盘状态：linear_velocity=线速度，angular_velocity=角速度，steering_angle=转向角")
             if args.interval > 0:
-                print("按 Ctrl+C 退出连续读取")
+                print(f"持续打印：每次收到响应后等待 {args.interval:g} 秒，按 Ctrl+C 退出", flush=True)
             while True:
                 state = get_chassis_state(client)
                 print(json.dumps(state, ensure_ascii=False, indent=2), flush=True)
