@@ -46,6 +46,11 @@ def get_chassis_state(client):
     payload, response = client.request(
         "request_chassis_state", "response_chassis_state"
     )
+    if not isinstance(payload, dict):
+        raise ProtocolError(
+            "response_chassis_state 的 data 不是对象："
+            + json.dumps(response, ensure_ascii=False)
+        )
     values = payload.get("data")
     if not isinstance(values, list) or len(values) != 3:
         raise ProtocolError(f"底盘状态 data 必须包含 3 个数值，实际为 {values!r}")

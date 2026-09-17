@@ -195,13 +195,23 @@ class MobilePlatformClient(AbstractContextManager):
             payload = response.get("data")
             if not isinstance(payload, dict):
                 raise ProtocolError(
-                    "响应 data 不是对象：" + json.dumps(response, ensure_ascii=False)
+                    "响应 data 不是对象。完整响应体：\n"
+                    + json.dumps(response, ensure_ascii=False, indent=2)
                 )
             if payload.get("result") != "success":
                 result = payload.get("result", "missing_result")
                 if result == "fail_no_data":
-                    return None, response
-                raise ProtocolError(f"{request_title} 请求失败：{result}")
+                    raise ProtocolError(
+                        f"{request_title} 请求失败：fail_no_data；"
+                        "机器人当前没有可用的升降台数据。请确认机器人是移动版双臂、"
+                        "升降台硬件和控制器已上电初始化，并检查机器人软件版本。"
+                        "\n完整响应体：\n"
+                        + json.dumps(response, ensure_ascii=False, indent=2)
+                    )
+                raise ProtocolError(
+                    f"{request_title} 请求失败：{result}\n完整响应体：\n"
+                    + json.dumps(response, ensure_ascii=False, indent=2)
+                )
             return payload, response
 
 

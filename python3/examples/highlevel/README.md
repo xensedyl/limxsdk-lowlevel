@@ -60,7 +60,7 @@ python3 python3/examples/highlevel/get_gripper_state.py
 - `get_lifter_position.py`：获取升降台位置、`q`、`q_per_mm` 和数据时间戳。
 - `get_chassis_state.py`：获取底盘线速度、角速度和转向角。
 - `set_chassis_mode.py`：设置 `ackerman`、`parallel`、`park`、`spinning` 或 `emergency_stop` 模式。
-- `chassis_move.py`：发送 `x`、`y`、`yaw` 底盘运动值，范围均为 `[-1, 1]`。
+- `chassis_move.py`：键盘按住运动、松开停止，发送 `x`、`y`、`yaw` 底盘运动值。
 - `mobile_platform_common.py`：上述脚本共用的连接和协议模块，不需要直接运行。
 
 先安装依赖：
@@ -101,27 +101,62 @@ python3 python3/examples/highlevel/get_chassis_state.py
 python3 python3/examples/highlevel/get_chassis_state.py --interval 0.5
 ```
 
-设置底盘模式并发送运动命令：
+键盘控制底盘（需要桌面显示环境）：
 
 ```bash
-# 设置阿克曼模式
-python3 python3/examples/highlevel/set_chassis_mode.py ackerman
+python3 -m pip install pygame
 
-# 发送 x=0.3、y=0、yaw=0 的运动命令
-python3 python3/examples/highlevel/chassis_move.py 0.3 0 0
+# 启动键盘窗口，保持机器人当前模式，默认速度值 0.5
+python3 python3/examples/highlevel/chassis_move.py
 
-# 发送全零运动命令
-python3 python3/examples/highlevel/chassis_move.py 0 0 0
+# 可显式选择模式、速度和指令刷新频率
+python3 python3/examples/highlevel/chassis_move.py \
+    --mode ackerman --speed 0.2 --turn-speed 0.2 --rate 20
 
-# 设置急停模式；--yes 用于明确跳过交互确认
+# 单独设置底盘模式仍使用原脚本
+python3 python3/examples/highlevel/set_chassis_mode.py parallel
 python3 python3/examples/highlevel/set_chassis_mode.py emergency_stop --yes
 ```
 
-控制脚本会先显示参数，只有输入 `yes` 后才连接并发送；明确用于自动化时可增加 `--yes`。`chassis_move.py` 每次只发送一条请求，机器人收到命令后的保持行为取决于控制器版本；停止运动时发送 `0 0 0`，紧急情况使用机器人急停装置或 `emergency_stop` 模式。底盘运动模式与 `x/y/yaw` 的组合含义也取决于控制器，请先设置所需模式，再发送运动命令。
+输入 `yes` 确认后，点击 **TRON2 Keyboard Control** 窗口，使其获得键盘焦点：
+
+- `W/S` 或上下方向键：前进/后退（`x`）。
+- `A/D` 或左右方向键：左/右转向（`yaw`）。
+- `Q/E`：左/右横移（`y`，是否生效取决于当前底盘模式）。
+- 可以组合按键，例如 `W+A`；相反方向同时按下时，该轴为零。
+- 松开某个按键即取消对应方向，全部松开后发送全零指令；默认持续按住时以 20 Hz 刷新。
+- 空格：发送全零指令。窗口失焦或最小化也会发送全零指令。之后须先松开所有方向键，再重新按下才能运动。
+- `Esc`、`Ctrl+C` 或关闭窗口：尝试发送全零指令并退出。
+
+`--speed` 和 `--turn-speed` 均为 `(0, 1]` 范围内的协议值，不代表 m/s 或 rad/s。脚本默认保持当前底盘模式，只有指定 `--mode` 才会更改模式。原来的 `chassis_move.py 0.3 0 0` 单次发送方式已替换为键盘控制。
+
+脚本通过真实的键盘状态检测松键，不依赖终端按键重复，因此需要可交互的桌面窗口；纯 SSH 无桌面会话不能直接使用。后台接收运动响应不会阻塞松键发送停止；默认超过 `--response-timeout 0.5` 秒未收到某条指令响应时，尝试发送全零指令并退出。断网、进程被强制终止或控制器异常时不能保证停止送达，需要机器人侧超时保护和实体急停。成功响应仅代表控制器接受指令，不是实际速度已归零的证明。
+
+控制脚本仍支持 `--yes` 跳过原有交互确认。
+
+如果窗口目标速度有变化但底盘不动，先核对运动模式和响应：
+
+```bash
+python3 python3/examples/highlevel/chassis_move.py \
+    --mode ackerman --speed 0.2 --turn-speed 0.2 --debug
+```
+
+窗口 `Target` 是发送目标值，不是实际底盘速度。终端会打印按键状态、目标变化时的发送参数及对应 `guid` 的回复；相同运动指令仍持续刷新，只省略逐条日志。窗口的 `Nonzero sent/ACK` 和退出时的统计区分非零指令发送数量与成功回复数量。`--mode ackerman` 会显式请求切换模式并打印结果；未指定 `--mode` 时，当前模式未知。
+
+`--debug` 额外打印：
+
+- 目标变化时的完整运动请求/响应，以及 `KEYDOWN`、`KEYUP` 按键事件。
+- 每秒 `[持续发送]`：连续非零目标时长、本段非零发送/成功回复数量、目标值、焦点及按键。首段为启动瞬间；之后默认约每秒发送 20 条，实际会受循环和网络耗时影响。
+- 每秒只读请求 `request_chassis_state`，显示 `[底盘反馈]` 原始响应。`data.data` 的三个值依次为线速度、角速度、转向角。响应失败、缺失、超时不会被当作零速度；反馈显示本机接收后的时间，超过 2 秒标为旧反馈，这不等于传感器数据自身的时间。
+- `[机器人上报]`：同一连接收到的最新 `notify_robot_info` 原始消息及接收后时间。查询响应按 ACCID/GUID 单独匹配，不计入运动成功数量，也不等待查询回复后才发送停止。
+
+若长按时非零请求持续发送且已得到 `success`，但底盘反馈仍为零，而原配遥控器能正常移动，应进一步核对上层开发者模式、控制源优先级及机器人侧接口日志。官方文档 3.1 概述说明上层接口在“上层开发者模式”下使用；这与 `ackerman` 底盘运动模式不是同一个设置。脚本不自动切换开发模式或夺取控制权，也不能仅凭 ACK 确定控制权、使能状态或已发生运动。退出时的零速度成功响应只确认停止请求已被接受。
 
 所有移动平台脚本默认从 `notify_robot_info` 自动获取 ACCID。通过 `--host 10.192.1.2 --port 5000` 指定服务地址，`--timeout 5` 设置各阶段超时；如果无法自动获取 ACCID，可传入 `--accid <机器人实际序列号>`。
 
 `get_chassis_state.py` 输出响应时间戳，以及 `linear_velocity`（线速度）、`angular_velocity`（角速度）、`steering_angle`（转向角）。这三个字段对应响应内 `data.data` 的三个元素；文档该节未标注单位，脚本保留原始数值。`get_lifter_state.py` 中 `q` 和 `v` 的单位在文档该节也未标注，脚本同样保留原始数值。
+
+`get_lifter_position.py` 保留完整响应体输出，并分别输出外层 `response_timestamp` 和内层 `timestamp`。内层时间戳兼容有限整数和浮点数（实机曾返回 `1478343.282537`），保留原值；不假定它与外层时间戳使用相同单位或时钟，不做取整、乘以 1000 或日期转换。
 
 ### 运动与夹爪控制
 

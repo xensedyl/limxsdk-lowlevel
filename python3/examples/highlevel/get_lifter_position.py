@@ -36,11 +36,16 @@ def get_lifter_position(client):
     payload, response = client.request(
         "request_get_lifter_position", "response_get_lifter_position"
     )
-    data_timestamp = payload.get("timestamp")
-    if type(data_timestamp) is not int:
+    print("response_get_lifter_position 完整响应体：")
+    print(json.dumps(response, ensure_ascii=False, indent=2))
+    if not isinstance(payload, dict):
         raise ProtocolError(
-            f"响应字段 timestamp 必须是整数，实际为 {data_timestamp!r}"
+            "response_get_lifter_position 的 data 不是对象："
+            + json.dumps(response, ensure_ascii=False)
         )
+    # 实机 data.timestamp 可能是浮点数，与外层时间戳的单位/时钟来源
+    # 不一定相同。保留原始数值，不强制整数，也不推测单位进行换算。
+    data_timestamp = require_number(payload.get("timestamp"), "data.timestamp")
     return {
         "response_timestamp": response.get("timestamp"),
         "position": require_number(payload.get("position"), "position"),
@@ -73,4 +78,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

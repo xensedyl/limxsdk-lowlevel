@@ -36,6 +36,11 @@ def get_lifter_state(client):
     payload, response = client.request(
         "request_lifter_state", "response_lifter_state"
     )
+    if not isinstance(payload, dict):
+        raise ProtocolError(
+            "response_lifter_state 的 data 不是对象："
+            + json.dumps(response, ensure_ascii=False)
+        )
     return {
         "timestamp": response.get("timestamp"),
         "q": require_single_number(payload.get("q"), "q"),
@@ -65,4 +70,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
